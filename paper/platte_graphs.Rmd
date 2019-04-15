@@ -1,0 +1,415 @@
+---
+title: "graphs"
+output: html_document
+---
+
+```{r}
+pacman::p_load(tidyverse, DiagrammeR)
+```
+
+
+# Neural Network
+
+
+```{r}
+g <- DiagrammeR::grViz("
+  digraph { 
+
+  ### global graph setting
+  rankdir=LR;
+  splines=line
+  nodesep=.3;
+
+  ### global 'node' statements
+  node [shape = circle, 
+        fixedsize = true,
+        fontname = Helvetica,
+        label = '']
+
+  ### global 'edge' statments
+  edge [arrowhead = vee,
+        arrowsize = .5]
+
+  ### input cluster options
+  subgraph cluster_0 {
+    x1 x2 x3;
+		color=white;
+    label = 'Input layer';
+  }
+
+  ### hidden layer options
+  subgraph cluster_1 {
+    a12 a22 a32 a42 a52 a13 a23 a33 a43;
+		color=white;
+		label = 'Hidden layer';
+	}
+
+  ### output layer options
+	subgraph cluster_2 {
+    o1 o2;
+		color=white;
+		label = 'Output layer';
+	}
+
+  ### node statements | strange order!!!!
+  x1 [label ='X@_{2}']
+  x2 [label ='X@_{3}']
+  x3 [label ='X@_{1}']
+  
+  o1 [label ='O@_{1}']
+  o2 [label ='O@_{2}']
+
+  ### connections
+  x1 -> {a12 a22 a32 a42 a52};
+  x2 -> {a12 a22 a32 a42 a52};
+  x3 -> {a12 a22 a32 a42 a52};
+  
+  a12 -> {a13 a23 a33 a43};
+  a22 -> {a13 a23 a33 a43};
+  a32 -> {a13 a23 a33 a43};
+  a42 -> {a13 a23 a33 a43};
+  a52 -> {a13 a23 a33 a43};
+
+  a13 -> {o1 o2};
+  a23 -> {o1 o2};
+  a33 -> {o1 o2};
+  a43 -> {o1 o2};
+  
+  ### bias
+  #a53 -> {o1 o2};
+  
+}", height = 480)
+g
+#DiagrammeRsvg::export_svg(g) %>% charToRaw %>% rsvg::rsvg_png("images/neural_network.png")
+```
+
+
+
+
+
+# Autoencoder
+
+
+## Plate Model
+
+```{r}
+autoencoder_plate <- DiagrammeR::grViz("
+  digraph { 
+
+  ### global graph setting
+  #rankdir=LR;
+  splines=line
+  nodesep=.3;
+
+  ### global 'node' statements
+  node [shape = circle, 
+        fixedsize = true,
+        fontname = Helvetica,
+        label = '']
+
+  ### global 'edge' statments
+  edge [arrowhead = vee,
+        arrowsize = .5]
+
+  w -> theta;
+  theta -> r
+
+  ### node statements | strange order!!!!
+  w [label ='w']
+  theta [label ='&theta;@_{d}']
+  r [label ='r']
+
+}", height = 480)
+
+autoencoder_plate
+DiagrammeRsvg::export_svg(autoencoder_plate) %>% charToRaw %>% rsvg::rsvg_png("images/autoencoder_plate.png", height = 600)
+```
+
+
+## Variational
+
+```{r}
+ae_var <- DiagrammeR::grViz("
+  digraph { 
+
+  ### global graph setting
+  rankdir=LR;
+  splines=line
+  nodesep=.3;
+
+  ### global 'node' statements
+  node [shape = box, 
+        fixedsize = true,
+        fontname = Helvetica,
+        label = '']
+
+  ### global 'edge' statments
+  edge [arrowhead = vee,
+        arrowsize = .5]
+
+  w -> f;
+
+  f -> mu1;
+  f -> sigma1;
+  sigma1 -> sample;
+  mu1 -> sample;
+
+  sample
+  sample -> g;
+  g -> r;
+
+  ### node statements | strange order!!!!
+  w [label ='w']
+  f [label ='f(w)']
+  mu1 [label ='&mu;(w)']
+  sigma1 [label ='&Sigma;(w)']
+  sample  [label ='sample z']
+  g [label ='g(z)']
+  r [label ='r']
+
+}", height = 380)
+
+ae_var
+#DiagrammeRsvg::export_svg(autoencoder_plate) %>% charToRaw %>% rsvg::rsvg_png("images/autoencoder_plate.png", height = 600)
+```
+
+
+
+
+## Enrolled
+
+```{r}
+autoencoder_flow <- DiagrammeR::grViz("
+  digraph { 
+
+  ### global graph setting
+  #rankdir=LR;
+  splines=line
+  nodesep=.3;
+
+  ### global 'node' statements
+  node [shape = circle, 
+        fixedsize = true,
+        fontname = Helvetica,
+        label = '']
+
+  ### global 'edge' statments
+  edge [arrowhead = vee,
+        arrowsize = .5]
+
+  ### input cluster options
+  subgraph input {
+    x1 x2 x3 x4 x5;
+		color=white;
+    #label = 'Input layer';
+  }
+
+  ### hidden layer options
+  subgraph hidden1 {
+    h11 h12 h13;
+		color=white;
+		#label = 'Hidden layer';
+  }
+
+  ### latent layer options
+  subgraph latent {
+    l1 l2;
+		color=white;
+		#label = 'Hidden layer';
+  }
+
+  ### hidden layer options
+  subgraph hidden2 {
+    h21 h22 h23;
+		color=white;
+		#label = 'Hidden layer';
+	}
+
+  ### output layer options
+	subgraph output {
+    o1 o2 o3 o4 o5;
+		color=white;
+		#label = 'Output layer';
+	}
+
+  ### node statements | strange order!!!!
+  x1 [label ='w@_{1}']
+  x2 [label ='w@_{2}']
+  x3 [label ='w@_{3}']
+  x4 [label ='w@_{4}']
+  x5 [label ='w@_{5}']
+
+  o1 [label ='r@_{1}']
+  o2 [label ='r@_{2}']
+  o3 [label ='r@_{3}']
+  o4 [label ='r@_{4}']
+  o5 [label ='r@_{5}']
+
+  h11 [label ='h@_{13}']
+  h12 [label ='h@_{12}']
+  h13 [label ='h@_{11}']
+
+  h21 [label ='h@_{23}']
+  h22 [label ='h@_{22}']
+  h23 [label ='h@_{21}']
+
+  l1 [label ='&theta;@_{1}']
+  l2 [label ='&theta;@_{2}']
+
+  ### connections
+  x1 -> {h11 h12 h13};
+  x2 -> {h11 h12 h13};
+  x3 -> {h11 h12 h13};
+  x4 -> {h11 h12 h13};
+  x5 -> {h11 h12 h13};
+
+  h11 -> {l1 l2};
+  h12 -> {l1 l2};
+  h13 -> {l1 l2};
+
+  l1 -> {h21 h22 h23};
+  l2 -> {h21 h22 h23};
+
+  h21 -> {o1 o2 o3 o4 o5}
+  h22 -> {o1 o2 o3 o4 o5}
+  h23 -> {o1 o2 o3 o4 o5}
+
+}", height = 480)
+autoencoder_flow
+DiagrammeRsvg::export_svg(autoencoder_flow) %>% charToRaw %>% rsvg::rsvg_png("images/autoencoder_flow.png", height = 600)
+```
+
+
+# LDA
+
+## Plates
+
+```{r}
+topic_plates <- DiagrammeR::grViz("
+  digraph { 
+  ### global graph setting
+  #rankdir=LR;
+  splines=line
+  nodesep=.3;
+
+  ### global 'node' statements
+  node [shape = circle, 
+        fixedsize = true,
+        #fontname = Helvetica,
+        label = '']
+
+  ### global 'edge' statments
+  edge [arrowhead = vee,
+        arrowsize = .5]
+
+  subgraph alpha {
+    alpha;
+		color=white;
+  }
+  
+  subgraph cluster1 {
+    graph [fixedsize = true, width = 4]
+    
+    theta -> z
+
+    subgraph cluster2 {
+     graph [fixedsize = true, width = 3.5]
+      
+      z -> w
+  
+    }
+  }
+
+  subgraph cluster3 {
+    graph [fixedsize = true, width = 1.5]
+    beta -> w;
+  }
+
+  ### node statements 
+  alpha [label ='&alpha;']
+  theta [label ='&theta;@_{d}']
+  z [label ='z@_{d,n}']
+  w [label ='w@_{d,n}']
+  beta [label ='&beta;@_{k}']
+  gamma [label ='&eta;']
+
+
+  ### Macro connections
+  alpha -> theta;
+  gamma -> beta;
+
+}", height = 480)
+topic_plates
+DiagrammeRsvg::export_svg(topic_plates) %>% charToRaw %>% rsvg::rsvg_png("images/topic_plates.png", height = 600)
+```
+
+## LDA Enrolled
+
+```{r}
+topic_flow <- DiagrammeR::grViz("
+  digraph { 
+  ### global graph setting
+  #rankdir=LR;
+  splines=line
+  nodesep=.3;
+
+  ### global 'node' statements
+  node [shape = circle, 
+        fixedsize = true,
+        #fontname = Helvetica,
+        label = '']
+
+  ### global 'edge' statments
+  edge [arrowhead = vee,
+        arrowsize = .5]
+
+  subgraph cluster1 {
+    graph [fixedsize = true, width = 1.5]
+      z1 -> w1
+  }
+
+  subgraph cluster2 {
+    graph [fixedsize = true, width = 1.5]
+    z2 -> w2
+  }
+
+  subgraph cluster3 {
+   graph [fixedsize = true, width = 3.5]
+    
+    z3 -> w3
+  
+  }
+
+  subgraph cluster4 {
+   graph [fixedsize = true, width = 3.5]
+    
+    z4 -> w4
+  
+  }
+
+  alpha -> {theta1 theta2 theta3 theta4}
+  theta1 -> z1
+  theta2 -> z2
+  theta3 -> z3
+  theta4 -> z4
+
+  ### node statements 
+  alpha [label ='&alpha;']
+  theta1 [label ='&theta;@_{1}']
+  theta2 [label ='&theta;@_{2}']
+  theta3 [label ='&theta;@_{3}']
+  theta4 [label ='&theta;@_{4}']
+  z1 [label ='z@_{1}']
+  z2 [label ='z@_{2}']
+  z3 [label ='z@_{3}']
+  z4 [label ='z@_{4}']
+  w1 [label ='w@_{1}']
+  w2 [label ='w@_{2}']
+  w3 [label ='w@_{3}']
+  w4 [label ='w@_{4}']
+
+}", height = 480)
+topic_flow
+DiagrammeRsvg::export_svg(topic_flow) %>% charToRaw %>% rsvg::rsvg_png("images/topic_flow.png", height = 600)
+```
+

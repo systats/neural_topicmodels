@@ -1,0 +1,781 @@
+---
+geometry: "left=2.5cm,right=2.5cm,top=2.5cm,bottom=2cm, paper=a4paper"
+fontsize: 12pt
+output: 
+  pdf_document:
+    toc: false
+    number_sections: yes
+    includes:
+      in_header: imports/header.tex
+      before_body: imports/title_page.tex
+      #after_body: appendix.tex
+bibliography: [autoencoder.bib, thesis_nlp.bib]
+csl: imports/university-of-stuttgart-sowi-standards.csl
+link-citations: yes
+---
+
+<!-- % LIST OF CONTENTS-->
+<!-- \tableofcontents -->
+
+<!-- % LIST OF TABLES & FIGURES-->
+<!-- \newpage -->
+<!-- \listoftables -->
+<!-- \listoffigures -->
+
+<!-- % BEGINN-->
+<!-- \clearpage -->
+<!-- \setstretch{1.5} -->
+
+\setstretch{1.15}
+
+```{r setup_1, include = F}
+knitr::opts_chunk$set(echo = F, warning = F, error = F, message = F, fig.width = 5, fig.height = 3, fig.align='center', fig.pos="ht!")
+```
+
+
+```{r}
+# all required packages
+# install.packages("pacman")
+pacman::p_load(tidyverse, knitr, stringr, purrr, furrr, stm, keras, kableExtra)
+```
+
+\newpage
+# Introduction
+
+<!-- Why language? -->
+
+<!-- Words convey meaningful concepts which are unique features of the human race. We are using them to express opinions, make proposals, and defend actions. From a broader perspective, language is used for public discourse and to encode universal binding decisions by laws and regulations.   -->
+<!-- Political scientists have always been interested in words and communication as a key building block for cooperation and complex descision making.  -->
+
+This paper aims to explore latent class models and their application to texts from social sciences. The most popular model for compressing text into a set of latent variables is Latent Dirichlet Allocation (LDA). More recently autoencoders (AE) have been proposed to tackle the problem of high dimensionality of text with the power of deep learning. Beside LDA, this paper will include two types of autoencoders, namely sparse (SAE) and variational (VAE). In order to grasp the unsupervised learning behavior of these models a range of experiments have been conducted on three different datasets. Benchmarking these models allows to determine the most useful one in terms of visual discovery and predictive capabilities. For example the obtained document vectors form LDA, SAE, and VAE can be further used to build on top supervised classification algorithms that are trained with a gold standard outcome. 
+
+Autoencoders have been developed only in the past five to ten years which provide a new alternative to latent class models with high dimensional sparse input. Like the majority of deep learning concepts in natural language processing (NLP), autoencoders were not invented for the propose of text input, but for images. Nonetheless they have shown great performance an a variety of NLP tasks like document classification or retrieval. New tools have been developed all over the place to handle long standing NLP problems like question-answering, entity recognition and language generation. All these innovations are driven by neural networks and their capability of non-linear feature fusion. That means a network can learn over several layers highly conditional and hierarchical word associations. Moreover, neural network approaches to topicmodelling have some other benefits to traditional ones. While traditional machine learning models like LDA scale linearly with the size of the training data, neural networks only scale linearly with the number of weights in a network, regardless of input size (Goldberg 2016: 371). This is probably the most important argument for researchers in a big data environment. 
+
+The rest of the paper is organized as follows. In Section 2, all model architectures are introduced beginning with LDA and the posterior distribution as an exploratory tool for large corpora. Furthermore, the basics of autoencoders and their general placement in the neural network community are discussed. The most promising model, a variational autoencoders (VAE) will combine the best of two worlds: A neural network architecture with a variational Bayesian approach to latent encoding. Therefore this VAE is expected to outperform all other models in the subsequent experiments in section 3. 
+
+<!-- * self-organizing language model -->
+<!-- * unsupervised -->
+<!-- * Effectively using such collections requires interacting with them in a more structured way: finding articles similar to those of interest, and exploring the collection through the underlying topics that run through it. -->
+<!-- * Scientif Literature is massive, large collection -->
+<!-- * With the statistical tools that we describe below, we can automatically or- organize electronic archives to facilitate efficient browsing and exploring. -->
+<!-- * Topic models have a wide range of applications like tag recommendation, text categorization, keyword extraction, information filtering and similarity search in the fields of text mining, information retrieval. -->
+<!-- * Applications of topic modeling use posterior estimates of these hidden variables to perform tasks such as information retrieval and document browsing. -->
+
+
+<!-- * Considering documents and texts as data gave birth to the field of information retrieval which provides a mature toolbox to cope text with data.  -->
+<!-- * For example, automatic toxic comment identification and prediction in real time is of paramount importance, since it would allow the prevention of several adverse effects for internet users.  -->
+<!-- * New computational issues arise through text as it can not be considered as a vector or time series but rather as a collection of discrete variables, with huge range and massive sparsity. Language allows for long term dependencies that establish a lot of latent semantic structure.  -->
+
+<!-- What can be accoplished with Topicmodeling? -->
+<!-- * different inferential problems: -->
+<!--     + Keywords -> search documents -->
+<!--     + documents -> search documents -->
+<!--     + What are the topics underlying this document collection? -->
+<!--     + Classify documents according to topics. -->
+
+<!-- Given the data without cluster assignments (in no particular order) -->
+
+<!-- * ... find the cluster for each point -->
+<!-- * ... find the parameters of each cluster (or distribution over parameter) -->
+<!-- * ... find the mixture proportion (or distribution proportion) -->
+
+<!-- Given each word in each document  -->
+
+<!-- * ... find the topic for each word. -->
+<!-- * ... find the distribution over topics for each document -->
+<!-- * ... find the distribution over terms for each topic -->
+
+<!-- (You can do this with MCMC (Gibbs Sampling), variational inference etc.) -->
+
+
+
+<!-- Training this type of model has been a long-standing problem in the ma- chine learning community, and classically, most approaches have had one of three serious drawbacks. First, they might require strong assumptions about the structure in the data. Second, they might make severe approximations, leading to suboptimal models. Or third, they might rely on computation- ally expensive inference procedures like Markov Chain Monte Carlo. More recently, some works have made tremendous progress in training neural networks as powerful function approximators through backpropagation [9]. These advances have given rise to promising frameworks which can use backpropagation-based function approximators to build generative models. -->
+<!-- One of the most popular such frameworks is the Variational Autoen- coder [1, 3], the subject of this tutorial.  -->
+
+<!-- Both the rapid growth of data as well as its high dimensionality made it necessary to research for Neural Networks that are capable of learning deep non-linear relationships. More recently learning from sequences or forgetting noisy input become the standard building block of today's NLP applications. These models are deployed everywhere e.g. on phones, browsers or computers. Their superiority over traditional machine learning algorithms like logistic regression is a strong argument for diving deeper into neural network language models. A central ambition for this project has been to train powerful neural networks with the Keras package, a high-level API build upon *TensorFlow*. TensorFlow is an open source deep learning framework that was released in late 2015 by Google. Since then, Google's search engine and almost every service involving language is powered by it [@abadi2016tensorflow]. Therefore, state-of-the-art generic language models are implemented with one of the most widely adopted deep learning frameworks in the world. -->
+    
+
+<!---# History Word Representation
+
+* From to dense embeddings 
+* Bag of Words
+    + disorded words are viewed as random variables which means exhangeability. 
+    + Words strongly depend on another and therefore are not iid. 
+    + BoW is only a rough relfextion of realtiy but is useful for both computaional and statistical reasons: text (bag of words), images (bag of patches), genotypes (bags of polymorphisms)
+    
+    
+One of the simplest approaches to text classification is the *bag-of-words* (BOW) representation which has long been state-of-the-art. This method represents text as an unordered collection of independent statistical features pertaining to word or n-gram frequencies. Each word or token is counted in a separate column and bound together in a document term matrix (DTM) as given in Table \ref{dtm}. These sparse word vectors in the size of the vocabulary are also referred to as *one hot* encoded. Subsequently, a predictive model is trained on a DTM e.g. Naive Bayes (NB), support vector machines (SVM) or tree-based methods like random forests (RF). These standard machine learning algorithms find the most discriminating features (words) for predicting a target variable. These models work reasonably well as specific keywords are signaling enough for classification. 
+
+ Documents including those signal words are considered to be similar. 
+
+```{r}
+library(dplyr)
+dtm <- rbind(
+  c("doc1", 0, 1, 0, 0, 0, 0, "...", 1),
+  c("doc2", 0, 0, 1, 2, 0, 0, "...", 0),
+  c("doc3", 0, 0, 0, 0, 1, 0, "...", 0),
+  c("doc4", 1, 0, 1, 0, 0, 0, "...", 0),
+  c("doc5", 0, 0, 0, 0, 1, 0, "...", 0),
+  c("docN", 3, 0, 0, 1, 0, 0, "...", 0)
+) %>% 
+  as.data.frame() %>% 
+  purrr::set_names(c("id", "Aber", "Andere", "Ansprache", "Andenken", "Boden", "Baden", "", "Zebra"))
+
+library(knitr)
+library(kableExtra)
+kable(dtm, caption = "\\label{dtm}Bag-of-words Text Representation (Example)", booktabs = T, linesep = "", align = "c") %>% 
+  #column_spec(1, width = "7em", bold=T) %>%
+  #column_spec(2, width = "13em") %>%
+  #column_spec(3, width = "17em") %>%
+  #collapse_rows(columns = 1:3) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position", position = "center")# %>%
+  #add_footnote(c("This is DTM", "OR DTM"), notation = "number")
+```
+
+The downside of such learners is their search for discriminative "key words" instead of understanding the meaning of words. However, while using a DTM with N-gram features could increase classification performance for certain types of documents, they also at the same time increase the vocabulary size with the number of possible word combinations in the corpus. Therefore, including N-grams addresses the issue of word relationships inefficiently. Another way to extend the traditional approach is a DTM transformation called *TF-IDF* which accounts for the inverse document frequency of a given word. Thereby the influence of common words is diminished compared to words that appear more infrequently, which are potentially more informative [@zhang2015sensitivity]. So far words are assumed to be statistically independent without any generic meaning.
+
+Such discrete representations are far from ideal because they are extremely sparse with possibly millions of unique words or n-grams, which speaks to its high dimensionality. In order to overcome these known issues vector space models (VSMs) were invented to extract semantics from unlabeled data at word level and to encode them in a compact continuous vector space. Thereby semantically similar words or phrases are mapped to nearby points due to their shared semantic meaning. These models build upon the idea of distributed representations of words [@hinton1986learning] which resulted in two different approaches to vectorize words: (1) count-based methods and (2) predictive methods. Count-based methods like Latent Semantic Analysis (LSA) factorize a co-occurrence matrix by singular value decomposition (SVD) to reduce the number of rows while preserving the similarity structure among columns [@landauer1997solution]. In contrast predictive methods (e.g. generic language models) construct a shallow neural network that predicts words that appear around the focus word (skip-gram) or the other way around (CBOW) [@goldberg2016primer].
+
+
+\begin{figure}[ht!]
+   \caption{Subset of Skip-Gram Word Embedding}
+   \label{skip}
+   \centering
+   \includegraphics[width=.7\textwidth]{images/tsne_plot.png}
+\end{figure}
+
+**Intrinsic Word Vecter Evaluation**
+* Word Analogies
+
+Predictive methods in form of neural probabilistic language models calculate a vector representation for each word that spatially encodes word meaning and relationships between words. While working at Google, @mikolov2013efficient implemented *Word2vec* an open source project which learns word vectors by using a neural network with a single hidden layer and then train a learner independently on top. Figure \ref{skip} shows a 2D representation of a word2vec skip-gram word embedding trained on the Bundestag corpus. Only a subset of words were selected and again reduced into two dimensions by TSNE^[t-Distributed Stochastic Neighbor Embedding (t-SNE) is a method for constructing a low dimensional embedding of high-dimensional data, distances or similarities [@tsne].]. We can see that digits, pronouns and adjectives are clustered together. These patterns would get even more apparent if more words would be considered for visualization. Other techniques have been inspired by Word2vec, for example *Global Vectors* (GloVe), which operates on ratios of word-word co-occurrence probabilities and provides a basic understanding of how Word2vec works [@pennington2014glove]. According to Mikolov, there is a trade-off between using memory heavy GloVe or longer training time with Word2vec, but the choice of training corpus is usually more important than the choice of technique itself. 
+
+\newpage 
+
+--->
+
+\newpage 
+
+# Models
+
+## LDA
+
+Latent Dirichlet Allocation (LDA) is a mixture model applied to the textual domain. In fact it is a hierarchical latent mixture model estimated with Bayesian inference on a document term matrix. Formally, they belong to the hidden or latent variable models [@blei2009topic: 3]. Latent variable models are structured distributions in which observed data interact with hidden random variables. Furthermore, LDA is a generative model which attempts to discover the latent semantic structure in a collection of documents automatically without supervision (target/ outcome). The emerging document/topic vectors $\theta$ as well as the related word topic assignments $\beta$ are latent variables. LDA works on a distribution over a fixed vocabulary (number of unique words) and fixed number of topics $k$. In each topic the distribution of words are different. The documents are then assumed to be generated by the following process: 
+
+
+$$p(\beta_{1:K}, \theta_{1:D}, z_{1:D}, w_{1:D}) = \prod^K_{i=1} p(\beta_i)  \prod^D_{d=1} p(\theta_d)(\prod^N_{n=1} p(z_{d,n}|\theta_d) p(w_{d,n}|\beta_{1:K}, z_{d, n})) $$
+
+
+In order to allow the mixing proportions to be document specific, it is usual to assume a distribution over the mixing proportions (Bayesian perspective, distributions of distributions), although the mixing proportions could be seen as random effects. Figure \ref{lda_structure}a shows the graphical notation of LDA and plot b the enrolled hierarchical model/tree of Bayesian topicmodels. The posterior distribution on the mixing proportions can be viewed as the representation of a document in the context of a given corpus. By applying Bayes rule, the computational task of inferring the latent topics is equivalent to computing the following joint probability distribution over the observed and hidden random variables [@blei2009topic]:
+
+$$p(\beta_{1:K}, \theta_{1_D}, z_{1:D}, w_{1:D}) = \frac{p(\beta_{1:K}, \theta_{1_D}, z_{1:D}, w_{1:D})}{w_{1:D}}$$
+
+Calculating the numerator is straightforward, but computing the normalization factor is extremely difficult for these kind of complex and generalized models. The full set of conditional posterior for all parameters can be computed by summing the joint distribution over every possible instance of hidden topic structure which makes the problem intractable, especially for big data applications. Integrating this multidimensional target function requires a Gibbs sampler or variational inference. 
+
+\begin{figure}[ht!]
+    \centering
+    \caption{General LDA Structure}
+    \label{lda_structure}
+    \begin{subfigure}[b]{0.35\textwidth}
+        \centering
+        \caption{Plate notation}
+        \includegraphics[width=.58\textwidth]{images/topic_plates.png}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.35\textwidth}
+        \centering
+        \caption{Enrolled notation}
+        \includegraphics[width=\textwidth]{images/topic_flow.png}
+    \end{subfigure}
+\end{figure}
+
+LDA comes with well known costs and limitations (for a detailed report on limitations read: @blei2009topic). Some of these constraints  apply to autoencoders as well. First, LDA assumes the estimated topics to be static or stationary over time. A way to relax this assumption is to use a dynamic topic model that explicitly define a temporal dimension. Furthermore, topic models are by design not able to learn correlated topics, which is problematic because such topics commonly occur in the context of the social sciences (CTM can mitigate this issue of vector independence). Indeed, topic models are hierarchically estimated, but they still do not have a notion of abstraction hierarchy, as documents often mix words at different level of abstraction in addition to mixing over topics. One possible solution is to introduce an additional level of hierarchy, which would allow the model to share data between different abstraction levels. Finally, topic models are built upon a document term matrices, a so called bag of words model, which assumes that each word is exchangeable, with no particular order or sentence structure. This procedure loses all local information about which words appear in a similar context. In fact, the following autoencoders are also build on a DTM, therefore losing local structure too, but with capabilities to model the underlying data in highly non-linear fashion. 
+
+<!-- * [scholar: Neural models for documents with metadata](https://github.com/dallascard/scholar) -->
+<!-- * [topic-rnn: Implementation (in progress) of Dieng et al.'s TopicRNN: a neural topic model & RNN hybrid.](https://github.com/dangitstam/topic-rnn) -->
+
+## Autoencoder
+
+In this section the concepts of autoencoders (AE) are introduced, describing their basic architecture as artificial neural networks (ANN) as well as the activation functions usually applied to their layers. After that, the distinction between sparse (SAE) and variational autoencoder (VAE) will be explained.
+
+An autoencoder is a type of ANN which is used to learn efficient discrete encodings in an unsupervised manner. Applied to text, the goal becomes to learn a lower dimensional feature representation on a document term matrix. Figure \ref{ae_structure}a shows the basic structure of an autoencoder, which uses an encoder $f$ to reduce $w$ words in the vocabulary to a latent space $\theta$. Afterwards a decoder $g$ network is used to predict each word in the documents again. Therefore, AEs are trained to reconstruct their input to the output layer, while verifying certain restrictions which prevent them from simply copy and pasting [@charte2018practical: 3]. A shallow AE network for text consists of just one hidden layer, and is defined by two weight matrices and two bias vectors. Whereas the first equation encodes the words into a latent representation z, the second one reconstructs the words given the latent vectors. The encoder and decoder functions, are two seperate NN, one for data compression one for reconstruction:
+
+$$z = f(z|w) = s_1(W^{(1)} w +b^{(1)})$$
+$$r = g(r|z) = s_2(W^{(2)} z +b^{(2)})$$
+\begin{figure}[b!]
+    \centering
+    \caption{General Autoencoder Structure}
+    \label{ae_structure}
+    \begin{subfigure}[b]{0.35\textwidth}
+        \centering
+        \caption{Plate notation}
+        \includegraphics[width=.25\textwidth]{images/autoencoder_plate.png}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.35\textwidth}
+        \centering
+        \caption{Enrolled notation}
+        \includegraphics[width=.9\textwidth]{images/autoencoder_flow.png}
+    \end{subfigure}
+\end{figure}
+
+
+Typically, autoencoder are symmetrically built neural networks with one, three or five hidden layer, thus belonging either to shallow or deep undercomplete networks [@charte2018practical: 5]. The central layer has substantially fewer dimensions k, which compress the data into a latent semantic space. This is typically referred to as a "bottleneck", as the encoder must learn an efficient compression of the data into this lower-dimensional space, which can be seen in figure \ref{ae_structure}b. Typically, feeding data through the network and adjusting weights is done during training phase. After randomly initializing the weights of the network, each is updated using back-propagation algorithm with the goal of minimizing the error of the output. In the case of autoencoder for text, each input is a word column and each output neuron is reconstruction probability for this word. 
+
+
+<!-- * recent development -->
+<!--     + ELMo:  -->
+<!--     + ULMfit:  -->
+<!--     + Open.AI: -->
+<!--     + BERT: Pretraining of Bidirectional transformers for language understanding.  -->
+
+Each neuron has an activation function that disentangles the factors explaining the variations in the data [@wan2013regularization]. Therefore they determine whether there is enough informative input at a node to fire a signal to the next layer. In figure \ref{activation} we see popular activation functions like ReLU or Softmax. First, Rectified Linear Unit (aka Rectifier, ReLU, Max, Ramp Function) has some interesting properties like non-negativity which gives rise to real zero weights but entirely neglects the negative activation space [@glorot2011deep]. Second, Softmax or Sigmoid functions which are well known as logistic transformations in statistical inference. In fact they are functional equivalents to the log-likelihood estimated by Maximum Likelihood. For classification purpose the sigmoid is often used in the output layer which non-linearly transforms a linear projection into $[0\leq p \leq 1]$ probability space [@karlik2011performance]. Tanh is also a sigmoid function, but with symmetry at the origin and a steeper slope. Whereas tanh produces supposedly stronger gradients, it is possible to design an AE with multiple hidden layers and different activations to combine the properties of several of these functions [@charte2018practical: 4]. 
+
+```{r, fig.cap = "\\label{activation}Common Activation Functions for Neural Networks"}
+activations_df <- list(
+    binary_step = function(x){ifelse(x >= 0, 1, 0)},
+    sigmoid = function(x){1 / (1 + exp(-x))},
+    #soft_sign = function(x){ x / (1 + abs(x))  },
+    soft_plus = function(x){ log(1 + exp(x))},
+    tanh = function(x){tanh(x)}, 
+    arc_tan = function(x){atan(x)},
+    #leaky_rec_lu = function(x){ ifelse(x < 0 , 0.01 *x , x )},
+    relu = function(x){ ifelse(x < 0 , 0, x )}
+    #gaussian = function(x){exp(-x^2)}
+  ) %>% 
+  imap_dfr(~{
+    tibble(x = seq(-4, 4, by = .05)) %>% 
+      mutate(value  = .x(x)) %>% 
+      mutate(fun = .y)
+  })
+
+activations_df %>% 
+  ggplot(aes(x, value)) + 
+  geom_line() +
+  facet_wrap(~fun, scales = "free_y") +
+  theme_classic()
+```
+
+
+### Sparse AE
+
+Sparse autoencoders are a special flavor autoencoder with a sparsity penalty that forces a single layer network to learn very distinctive features by restricting the number of words required for reconstruction. 
+Due to the massive capabilities of complex networks with several million of weights trained, over-fitting has always been an issue. To alleviate this problem $L_1$ or $L_2$ norms can be added to the loss function to perform weight regularization. This will force small weights to be nearly equal to zero and large weights decay by multiplying them with a squared penalty term [@uc2018]. In the case of the AE sparsity is introduced by a Bernoulli random variable, assuming a unit can only either fire or not [@charte2018practical: 8].
+
+$$\hat p_i = \frac{1}{||S||} \Sigma_{x \in S} f_i(x)$$
+This kind of constraint forces the algorithm to reduce the input to a single class value that minimizes prediction error. Another way to adaptively regularize a network is to drop out some neurons in order to improve its generalization [@hinton2012improving]. Dropout randomly forces a set of neurons to be zero and prevents the network from learning to rely on specific weights [@goldberg2016primer: 379]. This leads to a pruned network which mitigates the risk of over-fitting and can also sparse activations. Typically a drop out ratio of 50% is considered to be optimal for several applications [@srivastava2014dropout; @zhang2015sensitivity]. Work by @srivastava2014dropout establishes a strong connection between dropout and L2 regularization, which applies to this case. 
+
+### Variational AE
+
+Variational autoencoders (VAEs) were firstly introduced by @kingma2013auto and @rezende2014stochastic. In fact, VAE only resemble a traditional autoencoder by its architecture as encoder and decoder. At its center layer it takes a variational Bayesian approach to encoding. Its building block are latent, unobserved random variables z, which could have generated the observations x. In comparison to classic autoencoders, VAE replace the deterministic function of the decoder by stochastic mappings that allow to generate high quality vectors. Thus the objective function is to approximate the distribution of the latent variable given the observations [@charte2018practical]. The objective of VAE in this case has the following form:
+
+$$\mathcal{L}_{VAE}(\theta, \phi; w) = KL(q_\pi(z|w) || p_\theta(z)) - E_{q_\phi(z|w)}[\text{ log } p_\theta(r|z)]$$
+
+The loss function consists of two separate terms: first a latent loss (KL divergence) that measures how closely the latent variables match a Gaussian and the second, the generative loss, which is a mean squared error that measures how accurately the network reconstructed the input text. The first term allows the model to learn a sufficiently diverse space and therefore creates information-rich latent variables. In order to optimize the KL divergence via backpropagation a simple reparameterization trick is required: instead of the encoder generating a vector of real values, it will only generate a vector of means and a vector of standard deviations. The decoder networks than samples form a normal Gaussian with the respect to the learned encoder mean and SD. This sampling procedure is well summarized by @doersch2016tutorial where figure \ref{vae_structure} is taken from. 
+
+<!-- The higher the nomral standard deviation, respectively the noise added, the less information can be passed by one neuron. The more efficiently the model encodes the data, the higher can be raised the standard deviation on our gaussian (max 1). -->
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=.7\textwidth]{images/vae_trick.png}
+    \caption{This illustration is taken from Doersch (2016: 10). It shows the same variational autoencoder implemented as a feed-forward neural network, where $P(X|z)$ is a Gaussian, on the left without the "reparameterization trick" and on the right, with it. Sampling operations that are non-differential are shown in red. Blue color denotes loss layers. The feed forward behavior of these networks is identical, but back propagation can be applied only to the right network.}
+    \label{vae_structure}
+\end{figure}
+
+\newpage
+
+# Experiments
+
+In this section LDA, SAE and VAE will be evaluated on three different datasets. For evaluation different kind of procedures can be employed to test whether the document vectors of each model actually have learned useful feature representations. All experiments were conducted on a macbook with a 2,3 GHz Intel Quad-Core i5 and 16G RAM. After some testing, the `text2vec` package was used for efficient topicmodeling [@selivanov2016text2vec] and `ruta` for the autoencoders based on Tensorflow [@charte2019ruta]. 
+
+## Data
+
+```{r}
+pacman::p_load(tidyverse, knitr, stringr, purrr, furrr, stm, keras, kableExtra)
+ggplot2::theme_set(theme_classic())
+```
+
+<!-- Toxic -->
+Recently, Google, Wikipedia and Jigsaw launched a project involving five thousand crowd-workers to annotate approx. 160k comments with toxicity scores in order to train machines to automatically detect online insults, harassment, and abusive speech [@toxicity]. This dataset has been down sampled to counter class imbalance, as only 10% contain toxic commentary, resulting in a total of 28222 instances. 
+<!-- Fake -->
+The second data set comes from a Kaggle in-class competition. This dataset contains US news articles which are labeled as fake (not reliable) and non-fake. No balancing was required to get 20328 news articles with a label. 
+<!-- Pubs -->
+Lastly, Scopus data was taken from 5 different disciplines namely Medicine (MEDI), Social Sciences (SOCI, Psychology (PSYC), Economy (ECON), and Engineering (ENGI). Each category is almost equally sampled from a much larger corpus due to performance reasons of the following evaluations. 
+
+
+```{r}
+text_stats <- c(
+    ### VAE
+    "../models/results/fake_lda_lemma_10000_h_256_l_20/", 
+    "../models/results/pubs_vae_lemma_10000_h_256_l_20/",
+    "../models/results/toxic_sae_lemma_10000_h_256_l_20/"
+  ) %>% 
+  paste0("", ., "/glance.Rdata") %>%
+  map_df(~get(load(.x))) %>% 
+  filter(!duplicated(data)) %>% 
+  mutate_if(is.numeric, round, 3) %>%
+  select(data, sparsity, num_classes, mean_nwords, total_n, train_size, test_size) %>% 
+  gather(var, value, -data) %>% 
+  mutate(value = str_remove(value, ",0*?")) %>%
+  spread(data, value) # data
+
+text_stats %>% 
+  knitr::kable(caption = "Dataset Descriptives and Parameter", booktabs = T) %>% 
+  kableExtra::kable_styling(position = "center", latex_options = "hold_position")
+```
+
+
+
+
+```{r}
+pathes <- dir("../models/results") %>% 
+  tibble(path = .) %>% 
+  mutate(
+    blocks = str_split(path, "_"), 
+    data = blocks %>% map_chr(1),
+    model = blocks %>% map_chr(2),
+    latent_size = blocks %>% map_chr(8)
+  )
+
+# pathes %>% 
+#   count(latent_size)
+# dir("../ae/results")
+get_load <- function(x) get(load(x))
+get_load_pos <- possibly(get_load, NULL)
+
+features <- pathes %>% 
+  mutate(path =  paste0("../models/results/", path, "/features.Rdata")) %>% 
+  mutate(content = map(path, get_load_pos)) %>%
+  filter(!map_lgl(content, is.null)) %>%
+  select(-blocks) %>%
+  unnest(content)
+
+glances <- pathes %>% 
+  mutate(path =  paste0("../models/results/", path, "/glance.Rdata")) %>% 
+  mutate(content = map(path, get_load_pos)) %>%
+  filter(!map_lgl(content, is.null)) %>%
+  select(-blocks) %>%
+  unnest(content)
+
+fracs <- pathes %>% 
+  mutate(path =  paste0("../models/results/", path, "/fracs_perform.Rdata")) %>% 
+  mutate(content = map(path, get_load_pos)) %>%
+  filter(!map_lgl(content, is.null)) %>%
+  select(-blocks) %>%
+  unnest(content)
+```
+
+
+Each model presented takes as input a document term matrix with words as columns and  documents as rows [@soderland2001building]. Therefore, the size of the vocabulary drastically matters in terms of accuracy and speed. Two feature normalization steps have been performed to reduce sparsity. First, lemmatization which removes all word inflictions and second stop words removal. After tokenizing the texts, only the most frequent 10000 words are kept to vectorize the whole corpus. Before training, the data was split into 80% train and 20% test data. Model validation is automatically performed during training. For each combination of data and model type a grid of models has been computed with varying latent dimensions ranging from k = [2, 5, 10, 20, 32, 64, 128, 256]. The size of the latent space is the only common hyperparameter between LDA and AE beside textual parameters. 
+
+## Exploration
+
+<!-- 
+### Generating Word Lists
+
+* .. to be added.
+* This is inspired by the popular TFIDF term score of vocabulary terms used in information retrieval Baeza-Yates and Ribeiro-Neto (1999). The first expression is akin to the term frequency; the second expression is akin to the document frequency, down-weighting terms that have high probability under all the topics. Other methods of determining the difference between a topic and others can be found in (Tang and MacLennan, 2005). [@blei2009topic] -->
+
+
+### Word Embedding
+
+The overall object of these algorithms might be to produce document vectors but word vectors can be generated too. In the case of AE, each input neuron (word in the vocabulary) is connected to each hidden neuron with different weights. Usually, models can be visually evaluated by checking whether similar words are closely related to each other in the vector space. Table \ref{top_5} shows five top words in the word representation space (by cosine similarity) for LDA, SAE, and VAE. A selected number of reference words (column names) are used to retrieve five nearest word neighbors in the latent space. Thereby it can be observed what the different models have learned about various concepts.
+
+<!-- * The topic simplex -->
+<!--     + Each corner of the simplex corresponds to a topic location, a compontnent of the vector z (multinomial random variable). -->
+<!--     + A document is modeled as a point n the simplex set of mixing proportions over topics. -->
+<!--     + A corpus is modeled as a Dirichlet distribution over the inner simplex.  -->
+<!-- * [PhenoLines: Phenotype Comparison Visualizations for Disease Subtyping via Topic Models](https://www.youtube.com/watch?v=u7Qw2Zn7MEA) -->
+
+
+```{r}
+word_embeds <- pathes %>% 
+  filter(latent_size == 20) %>% 
+  mutate(path =  paste0("../models/results/", path, "/word_embed.Rdata")) %>% 
+  mutate(content = map(path, get_load_pos)) %>%
+  filter(!map_lgl(content, is.null)) %>%
+  select(-blocks)
+
+find_similar_words <- function(query, mat, n = 5) {
+
+  sim_vals <- text2vec::sim2(mat, y = matrix(mat[query, ], ncol = ncol(mat)), method = "cosine")
+  sim_vals <- sim_vals[,1] 
+  sim_vals <- sim_vals[!names(sim_vals) == query]
+  return(
+    tibble(word = names(sim_vals), sim = sim_vals) %>% 
+      mutate(target_word = query) %>% 
+      filter(nchar(word) > 5 & nchar(word) < 8) %>% 
+      arrange(desc(sim)) %>%
+      head(n)
+  )
+}
+
+find_similar_words_pos <- possibly(find_similar_words, NULL)
+target_words <- c("parliament", "study", "president", "media", "law", "weapon", "border")
+
+mutate_pos <- possibly(mutate, NULL)
+
+word_sims <- word_embeds %>%
+  split(1:nrow(.)) %>%
+  imap_dfr(~{
+    embed <- word_embeds$content[[.y]]
+    head(embed)
+    # out <- target_words %>%
+    #   map_dfr(~{
+    #     print(.x)
+    #     top_n <- find_similar_words(.x, embed, n = 5) %>%
+    #       mutate_pos(data = .y)
+    #     return(top_n)
+    #   })
+    out <- list()
+    for(jj in 1:length(target_words)){
+      out[[jj]] <- find_similar_words(target_words[jj], word_embeds$content[[as.numeric(.y)]], n = 5) %>% 
+        mutate(data = .x$data, model = .x$model, target_word = target_words[jj])
+    }
+    return(bind_rows(out))
+  })
+
+word_sims %>% 
+  filter(data == "fake") %>%
+  group_by(target_word, data, model) %>% 
+  summarise(
+    word_list = kableExtra::linebreak(paste(word, collapse = " \n "))
+  ) %>%
+  spread(target_word, word_list) %>% 
+  select(-data) %>%
+  knitr::kable(escape = F, caption = "\\label{top_5}Five most similar words in the latent space of fake news articles by cosine similaritys. The column names are the reference words to retrieve 5 similar ones. Thereby we can observe what concepts a model has learned.", booktabs = T) %>%
+  kableExtra::kable_styling(font_size = 10, position = "center", latex_options = "hold_position")
+```
+
+
+### Visualization of Document Representations
+
+```{r, fig.width = 9, fig.height = 6, fig.cap = "\\label{pca_latent}PCA on the 20-dimensional document vectors on various datasets. Each point is a document from the respective test set, which has been encoded/embedded by Latent Dirichlet Allocation (LDA), and sparse (SAE) as well as variational autoencoder (VAE). At training time, the algorithems are unsupervised, meaning they do not know any label or outcome."}
+pca_perform <- c("toxic", "fake", "pubs") %>% 
+  map(~{
+    features %>% 
+      filter(data == .x, latent_size == 10) %>%
+      ggplot(aes(pca_1, pca_2, colour = target_label)) +
+      geom_point(alpha = .2) +
+      scale_colour_viridis_d(.x) + 
+      #ggthemes::scale_colour_colorblind(.x) +
+      facet_wrap(~model, scales = "free") +
+      labs(x = "", y = "")
+  })
+library(gridExtra)
+do.call("grid.arrange", c(pca_perform, ncol=1))
+```
+
+In figure \ref{pca_latent}, we observe the PCA projections for each document representation by model and datasets separately. A useful document representation method is expected to cluster related documents, and to differentiate the unrelated ones. Empirically seen, VAE produces the highest quality visualizations that can easily distinguish the given labels without knowing them at training time. In contrast, LDA has a harder time to identify the binary structure of the given clusters. On the Scopus publication data, LDA achieves similar results despite spatial constraints, which prevent the model from enfolding. Figure x,y,z in the appendix present the same latent space but transformed by different dimensionality reduction algorithms (TSNE, UMAP, large Vis). 
+
+
+## Prediction
+
+This subsection deals with quantitative evaluations of the document representation 
+space by performing classification and document retrieval on it. The chosen datasets
+come with different labels that can be used to systematically compare the performance of 
+different classifiers trained on top of the document vector space. 
+
+### Mean Squared Cosine Deviation
+
+As @chen2017kate demonstrated, we can use cosine deviation among topics to 
+quantify the distinctiveness of the latent vectors, which can be seen as a measure of how feature rich the newly learned document vectors are. Define the pair-wise mean squared cosine deviation among k topics as follows
+
+$$mscsd = \sqrt{\frac{2}{k(k-1)} \sum cos^2(\theta_i, \theta_j)}$$
+
+Thus, mscd ranges from $[0, 1]$, whereas  smaller values indicated more distinctive, respectively orthogonal topics. The next table contains the mscd values for each data set and model separately, based on k = 20. On this task LDA performs better that SAE but the most distinct vectors are still learned by VAE. 
+
+```{r}
+glances %>% 
+  filter(latent_size == 32) %>%
+  select(model, data, mean_mscs) %>% 
+  spread(model, mean_mscs) %>%
+  kable(caption = "Mean squared cosine deviation among topics; smaller means more distinctive topics.", booktabs = T) %>% 
+  kable_styling(position = "center", latex_options = "hold_position")
+```
+
+
+### Document Classification
+
+Now we turn to document classification, the backbone of modern NLP. In this set of experiments two different learners were built upon the document vectors, namely Random Forest (RF) [@wright2015ranger] and a one layer neural network (NN) [@chollet2015keras]. The NN has either a softmax (multi-class) or sigmoid (binary) as output activation function, depending on the number of levels of the dependent variable. In order to ensure fairness, the same two models are computed for every dataset and document vectors. 
+
+```{r roc, fig.width = 8, fig.width = 4.5, fig.cap="\\label{roc} ROC for Binary Classfication ", fig.pos="b!"}
+# devtools::install_github("sachsmc/plotROC")
+library(plotROC)
+features %>% 
+  #glimpse %>%
+  filter(data %in% c("fake", "toxic")) %>%
+  select(model, data, prob_nn, prob_rf, target, latent_size) %>%
+  gather(var, value, -data, -target, -model, -latent_size) %>%
+  mutate(value = ifelse(data == "toxic" & var == "prob_rf", 1/value, value)) %>%
+  mutate(var = ifelse(var == "prob_nn", "Neural Network", "Random Forest")) %>%
+  ggplot(aes(d = target, m = value, colour = model, group = model)) +
+  geom_roc(labels = F, pointsize = .4, linealpha = .8) +
+  theme_classic() +
+  facet_grid(data ~ var) +
+  # ggthemes::scale_colour_colorblind("Model")
+  scale_colour_viridis_d() +
+  geom_abline(slope = 1, intercept = 0, color = "gray50", linetype = "dashed")
+  #style_roc() +
+```
+
+For the binary classification task the Receiver Operating Characteristic (ROC) curve is used to assess the accuracy of a predicted probability for predicting a binary outcome. Important for this calculation are two types of errors: the fraction of false positives (TPF), and false negatives (FPF). ROC calculates the cumulative distribution function over a varying discrimination threshold. Usually the cutoff point $c$ is not fixed prior but it can be plotted against TPF and the FPF. Figure \ref{roc} shows the ROC curves again for all models and datasets. We can observe that VAE systematically outperforms LDA as well as SAE on the binary classification task, which shows the advantages of VAE over other traditional autoencoders. In table \ref{perform_binary} all accuracies are listed with $c = .5$. There is quite a huge discrepancy between the accuracy for the LDA document vectors compared to VAE which is around 10%. Surprisingly, random forest does not learn anything from the toxicity document vectors, which might be caused by short texts (mean words = 61,4). 
+
+<!-- $$ TPF(c) = P\{ M > c | D = 1 \} $$ -->
+<!-- $$ FPF(c) = P\{ M > c | D = 0 \} $$ -->
+
+```{r}
+#pd <- position_dodge(width = 1)
+features %>% 
+  #glimpse %>%
+  filter(data %in% c("fake", "toxic")) %>%
+  select(model, data, prob_nn, prob_rf, target, latent_size) %>%
+  gather(var, value, -data, -target, -model, -latent_size) %>%
+  mutate(value = ifelse(data == "toxic" & var == "prob_rf", 1/value, value)) %>%
+  mutate(learner = ifelse(var == "prob_nn", "Neural Network", "Random Forest")) %>% 
+  filter(latent_size == 32) %>% 
+  mutate(value = ifelse(value > .5, 1, 0), true = target == value) %>% 
+  group_by(data, model, learner) %>% 
+  summarise(acc = mean(true)) %>% 
+  ungroup() %>% 
+  mutate(label = scales::percent(acc)) %>% 
+  select(-acc) %>% 
+  spread(model, label) %>% 
+  arrange(learner) %>%
+  # ggplot(aes(model, acc, fill = data, label = label)) +
+  # geom_col(position = pd, alpha = .5, width = .1) +
+  # #geom_point(position = pd) +
+  # geom_text(position = pd) + 
+  # facet_wrap(~var)
+  kable(caption = "\\label{perform_binary}Classification accuracy (binary data)", booktabs = T) %>% 
+  kable_styling(position = "center", latex_options = "hold_position")
+```
+
+The last classification task predicts multi-class outcomes for the Scopus publication data. The following tables show the confusion matrix for each model and learner separately. The best performing model and learner is again VAE in combination with neural networks. This model classifies 8.4 out of 10 texts correctly by only relying on the learned document vectors. The difference of best vs the worst model is again 10% accuracy. LDA seems to systematically confuse some categories compared to VAE. 
+
+```{r}
+vis_table <- function(df){
+  # tibble(pred = pred, real = real) %>% 
+  #   dplyr::count(pred, real) %>% 
+  df %>% 
+    dplyr::group_by(real) %>% 
+    dplyr::mutate(n_real = sum(n)) %>% 
+    ungroup() %>% 
+    dplyr::mutate(perc_real = round(n/n_real * 100, 1)) %>%
+    dplyr::mutate(label = n) %>% # paste0(n, "\n", perc_real, "%") 
+    mutate(text_color = pred == real) %>%
+    ggplot(aes(real, pred, fill = n)) + 
+    ggplot2::geom_tile(alpha = 0.8) + 
+    #viridis::scale_fill_viridis(direction = -1) + 
+    scale_fill_gradient(low = "white", high = "black")+
+    #scale_fill_viridis_c(direction = -1) + 
+    scale_x_discrete(position = "top") + 
+    #ggthemes::theme_solid() + 
+    coord_equal() + 
+    labs(x = "Real value y", y = "Predicted value y hat") +
+    ggplot2::geom_text(aes(label = label, colour = text_color)) +
+    scale_color_manual(values = c("black", "white")) +
+    theme(legend.position = "none") +
+    guides(colour = F, fill = F)
+}
+```
+
+
+```{r pub_con, fig.height = 6, fig.width = 9, fig.cap="\\label{fig:pub_con}Confusion Matrix for Topic Predictions in Scopus Publication Data"}
+# remotes::install_github("dariyasydykova/tidyroc")
+acc_dat <- features %>% 
+  filter(data == "pubs", latent_size == 128) %>% 
+  select(target, target_label, pred_nn, pred_rf, model, data) %>%
+  mutate(true_nn = target == pred_nn, true_rf = target_label == pred_rf) %>% 
+  group_by(model, data) %>% 
+  summarise(acc_nn = scales::percent(mean(true_nn)), acc_rf = scales::percent(mean(true_rf))) %>% 
+  ungroup %>% 
+  split(.$model)
+  
+nn_list <- features %>% 
+  #glimpse %>%
+  filter(data == "pubs", latent_size == 128) %>%
+  select(real = target_label, pred = pred_nn, model) %>%
+  mutate(
+    pred = case_when(
+      pred == 1  ~ "ECON",
+      pred == 2 ~ "ENGI",
+      pred == 3 ~ "MEDI" ,
+      pred == 4 ~ "PSYC",
+      pred == 5 ~  "SOCI"
+    )
+  ) %>%
+  dplyr::count(pred, real, model) %>% 
+  #mutate(real = factor(real, levels = rev(c("MEDI", "SOCI", "PSYC", "ECON", "ENGI")))) %>%
+  split(.$model) %>% 
+  map2(acc_dat, ~{vis_table(.x) + ggtitle(glue::glue("NN - {.x$model} - Acc: {.y$acc_nn}")) })
+
+rf_list <- features %>% 
+  #glimpse %>%
+  filter(data == "pubs", latent_size == 128) %>%
+  select(real = target_label, pred = pred_rf, model) %>%
+  dplyr::count(pred, real, model) %>% 
+  split(.$model) %>% 
+  map2(acc_dat, ~{vis_table(.x) + ggtitle(glue::glue("RF - {.x$model} - Acc: {.y$acc_rf}")) })
+
+library(gridExtra)
+do.call("grid.arrange", c(c(nn_list, rf_list), nrow=2))
+```
+
+\newpage
+
+### Document Retrieval
+
+```{r, fig.width = 8, fig.height = 8, fig.cap = "\\label{doc_retrieval} Document Retrieval (Smoothed over all latent topic spaces)", fig.pos="b!"}
+retrieve_fracs <- c("toxic", "fake", "pubs") %>% 
+  map2(c(F, F, T), ~{
+    fracs %>% 
+      mutate(depend = paste(data, model, sep = "_")) %>%
+      filter(data == .x, latent_size %in% c(5, 10, 20, 32, 64, 128)) %>%
+      #filter(label  "fake") %>%
+      ggplot(aes(frac, mean_acc, colour = label, alpha = latent_size)) +
+      geom_smooth(alpha = .3) +
+      #geom_line() +
+      scale_alpha_discrete(range = c(.5, .5)) +
+      scale_colour_viridis_d() +
+      facet_grid(data ~ model) +
+      guides(alpha = F) +
+      scale_x_log10(label = scales::percent) %>% 
+      scale_y_continuous(label = scales::percent) %>% 
+      labs(y = "Mean Accuracy", x = ifelse(.y, "Fraction of Total Documents Quered", ""))
+  })
+
+library(gridExtra)
+do.call("grid.arrange", c(retrieve_fracs, ncol=1))
+```
+
+The last set of experiments is concerned with document retrieval which is generally defined as the matching of some stated user query against a corpus. For this setup each individual document from the test set is used as query to fetch the relevant documents again from the test set by cosine similarity. Here I follow the example of @chen2017kate, who used the average fraction of retrieved documents that share the same label as a evaluation metric (precision). This was obviously the computationally most expensive part as on average about 4500 queries with different fractions of the original corpus size had to be computed. This might turn out to be the most useful application of document vectors. Given a database return N similar documents to the input query. Figure \ref{doc_retrieval} shows the a smooth average precision for each model over all document vector sizes [5, 10, 20, 32, 64, 128] (indicated as SE). For the toxicity corpus both autoencoders outperform LDA, whereas VAE really shines on binary target variables. It is especially worth mentioning, that VAE queries both target labels almost equally well, whereas both other model usually tend towards one good and one bad predicted classes. On the multi-class publication dataset, all models perform reasonably well with some class specific differences. This result encourages to use AE in general to millions of publications, which are in turn ready for user queries from the web.
+
+
+<!-- ### Performance -->
+
+<!-- ```{r} -->
+<!-- glances %>%  -->
+<!--   glimpse %>%  -->
+<!--   mutate(latent_size = as.numeric(latent_size)) %>% -->
+<!--   ggplot(aes(latent_size, runtime, colour = model)) + -->
+<!--   geom_point() + -->
+<!--   facet_wrap(~data) -->
+<!-- ``` -->
+
+
+# Discussion
+
+This paper demonstrated how different document embedding algorithms can be leveraged in political science practice to detect toxic language, fake news or subjects of scientific publications. After extensive experimentation the most useful model is variational autoencoder (VAE) as this model can build on a neural network architecture and a Bayesian sampling procedure to optimize its stochastic mapping. LDA as well as SAE steadily underperform VAE due to the each models limitations. Whereas VAE tries to maximize the linear separability of classes in the latent space (which take arbitrary values), LDA calculates topic proportions (with arbitrary abstraction level). Despite VAEs predictive power, one might choose LDA as it offers "interpretability" of topics. Recently, KATE a K-competitive Autoencoder for text [@chen2017kate] was proposed which achieves even higher evaluation scores on sets of experiments outlined in section 3.
+
+There are several avenues to explore. First, I contacted the author of `ruta` to cooperatively add KATE to his package. Second, use skewed distributions to model the posterior of the VAE instead of Gaussian or to implement convolutional or LSTM autoencoder, that are explicitly design to deal with sequential data input like language. The given model could also be applied with one dimension to approximate left-right scale given the underlying text is talking about political issues. After all VAE provide a massive improvement over TF-IDF and LDA methods in terms of predictive power and scalability. Finally, all the intuition build about document vector models and their handling can be directly transferred to organize large collections of scientic literture. 
+
+
+\newpage
+# Appendix
+
+```{r, eval=F}
+word_sims %>% 
+  filter(data != "fake") %>%
+  group_by(target_word, data, model) %>% 
+  summarise(
+    word_list = kableExtra::linebreak(paste(word, collapse = " \n "))
+  ) %>%
+  spread(target_word, word_list) %>% 
+  arrange(data) %>% 
+  knitr::kable(escape = F, caption = "Five most similar words in the latent space based on cosine similarity", booktabs = T) %>%
+  kableExtra::kable_styling(font_size = 10, position = "center", latex_options = "hold_position")
+```
+
+
+
+```{r, fig.width = 9, fig.height = 6, fig.cap = "T-SNE on the 20-dimensional document vectors on various datasets"}
+tsne_perform <- c("toxic", "fake", "pubs") %>% 
+  map(~{
+    features %>% 
+      filter(data == .x, latent_size == 20) %>%
+      ggplot(aes(tsne_1, tsne_2, colour = target_label)) +
+      geom_point(alpha = .2) +
+      #ggthemes::scale_colour_colorblind(.x) +
+      scale_colour_viridis_d(.x) + 
+      facet_wrap( ~model, scales = "free") +
+      labs(x = "", y = "")
+  })
+library(gridExtra)
+do.call("grid.arrange", c(tsne_perform, ncol=1))
+```
+
+```{r, fig.width = 9, fig.height = 6, fig.cap = "UMAP on the 20-dimensional document vectors on various datasets", eval = F}
+umap_perform <- c("toxic", "fake", "pubs") %>% 
+  map(~{
+    features %>% 
+      filter(data == .x, latent_size == 32) %>%
+      ggplot(aes(umap_1, umap_2, colour = target_label)) +
+      geom_point(alpha = .2) +
+      #ggthemes::scale_colour_colorblind(.x) +
+      scale_colour_viridis_d(.x) + 
+      facet_wrap( ~model, scales = "free") +
+      labs(x = "", y = "")
+  })
+library(gridExtra)
+do.call("grid.arrange", c(tsne_perform, ncol=1))
+```
+
+```{r, fig.width = 9, fig.height = 6, fig.cap = "Large Vis on the 20-dimensional document vectors on various datasets", eval = F}
+largeV_perform <- c("toxic", "fake", "pubs") %>% 
+  map(~{
+    features %>% 
+      filter(data == .x, latent_size == 64) %>%
+      ggplot(aes(largeV_1, largeV_2, colour = target_label)) +
+      geom_point(alpha = .2) +
+      #ggthemes::scale_colour_colorblind(.x) +
+      scale_colour_viridis_d(.x) + 
+      facet_wrap( ~model, scales = "free") +
+      labs(x = "", y = "")
+  })
+library(gridExtra)
+do.call("grid.arrange", c(tsne_perform, ncol=1))
+```
+
+
+
+\newpage
+
+# References {-}
+
+\setstretch{1}
+\setlength{\parindent}{-0.2in}
+\setlength{\leftskip}{0.2in}
+\setlength{\parskip}{8pt}
+\noindent
+
+
+
+```{r, eval = F}
+library(viridis)
+cols <- viridis(length(unique(test$target_label)))
+cols_var <- cols[test$target_label %>% as.factor %>% as.numeric]
+
+library(highcharter)
+tsne_list <- tsne_dat %>% 
+  mutate(title_html = title %>% 
+           str_split("[^\\w]") %>% 
+           map_chr(~{
+             cut <- (1:length(.x) %/% 7)
+             .x %>% 
+               split(cut) %>% 
+               map_chr(paste, collapse = " ") %>% 
+               paste(collapse = "<br>") %>% 
+               str_squish()
+          })
+  ) %>%
+  list_parse()
+
+highchart(width = 1000, height = 1000) %>% 
+  hc_add_series(data = tsne_list, type = "scatter", name = "") %>%
+  hc_tooltip(formatter = JS("function(){
+                            return (' ' + this.point.title_html + 
+                                    '<br> Subject: ' + this.point.subject)
+                            }") # '<br> y: ' + this.y +
+  ) %>% 
+  hc_add_theme(hc_theme_null())  %>% 
+  hc_chart(zoomType = "xy") 
+```
+
