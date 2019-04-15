@@ -1,0 +1,108 @@
+---
+title: "run_models"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(tidyverse, purrr)
+```
+
+
+# Parameters
+
+## Scopus
+
+```{r}
+pubs_params <- tibble(
+  data_path = "../data/scopus/pubs_final.Rdata",
+  name = "pubs",
+  text = "lemma", 
+  max_features = 10000,
+  hidden_size = 256, 
+  epochs = 5
+)
+```
+
+
+## Fake News
+
+```{r}
+fake_params <- tibble(
+  data_path = "../data/fake_news/fake_final.Rdata",
+  name = "fake",
+  text = "lemma", 
+  max_features = 10000,
+  hidden_size = 256, 
+  epochs = 5
+)
+```
+
+## Toxicity
+
+```{r}
+toxic_params <- tibble(
+  data_path = "../data/toxicity/toxic_final.Rdata",
+  name = "toxic",
+  text = "lemma", 
+  max_features = 10000,
+  hidden_size = 256, 
+  epochs = 5
+)
+```
+
+# Main 
+
+```{r}
+library(rmarkdown)
+compile_report <- function(p, report_file = "vae.Rmd"){
+  id <-  paste(p$name, p$model, p$text, p$max_features, "h", p$hidden_size, "l", p$latent_size, sep = "_") 
+  id_path <- paste0("results/", id)
+  
+  if(!dir.exists(id_path)){
+    dir.create(id_path)
+  }
+
+  render(
+    input = report_file, 
+    output_dir = id_path, 
+    params = c(list(id_path = id_path), p)
+  )
+}
+
+# compile_report(fake_params)
+# compile_report(pubs_params)
+# compile_report(toxic_params, report_file = "lda.Rmd")
+compile_report_pos <- possibly(compile_report, NULL)
+
+model_grid <- expand.grid(
+    #latent_size = c(2, 5, 10, 20, 32, 64, 128, 256), 
+    latent_size = 20,
+    model = "lda",
+    name = "toxic"
+    #model = c("vae", "lda", "sae"),
+    #name = c("fake", "toxic", "pubs")
+  ) %>% 
+  left_join(
+    bind_rows(
+      fake_params,
+      toxic_params,
+      pubs_params
+    ), by = "name"
+  )
+
+model_grid %>% 
+  #slice(2:5) %>%
+  split(1:nrow(.)) %>%
+  walk(~{
+    gc()
+    compile_report(.x, report_file = glue::glue("{.x$model}_part.Rmd"))
+    gc()
+  })
+```
+
+
+```{r}
+
+
+```

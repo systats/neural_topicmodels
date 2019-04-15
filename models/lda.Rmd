@@ -1,0 +1,591 @@
+---
+title: "topicmodels LDA"
+params: 
+  id_path: "."
+  data_path: "."
+  name: "name"
+  model: "lda"
+  text: "lemma"
+  max_features: 2000
+  hidden_size: 126
+  latent_size: 5
+  epochs: 5
+output: pdf_document
+---
+
+```{r setup_1, include = F}
+knitr::opts_chunk$set(echo = F, warning = F, error = F, message = F, fig.width = 5, fig.height = 3, fig.align='center')
+```
+
+# Parameters
+
+```{r}
+id_path <- params$id_path
+data_path <- params$data_path
+name <- params$name
+model <- params$model
+text <- params$text
+max_features <- params$max_features
+hidden_size <- params$hidden_size
+latent_size <- params$latent_size
+epochs <- params$epochs
+```
+
+
+```{r}
+# id_path = "results/fake_lda_lemma_5000_h_256_l_10"
+# name <- "fake" # data name
+# data_path <- "../data/fake_news/fake_final.Rdata"
+# text <- "lemma"
+# max_features <- 10000 # top most common words
+# model <- "lda"
+# latent_size <- 10
+# hidden_size <- 256
+# epochs <- 1
+```
+
+
+```{r}
+# library(reticulate)
+# #Sys.getenv("RETICULATE_PYTHON")
+# sys <- import("sys")
+# sys$version
+# use_python("/usr/local/bin/python3")
+# sys$version
+```
+
+# Packages
+
+```{r}
+options(scipen = 999)
+#reticulate::use_python("/usr/local/bin/python3", required = T)
+pacman::p_load(tidyverse, purrr, furrr, keras, ruta, randomForest, RSQLite, reticulate,
+               text2vec, stringr)
+ggplot2::theme_set(theme_classic())
+set.seed(42)
+plan(multiprocess)
+```
+
+
+# Load Data 
+
+```{r}
+dt <- get(load(data_path))
+  # mutate_("text_filter" = text) %>%
+  # mutate(text_filter = text_filter %>% str_split(" ") %>% map_dbl(~length(unique(.x)))) %>%
+  # filter(text_filter > 10)
+
+train_split <- sample(c(T, F), size = nrow(dt), replace = T, prob = c(.8, .2))
+train <- dt %>% filter(train_split)
+test <- dt %>% filter(!train_split)
+```
+
+
+## Vocabluary 
+
+```{r}
+library(keras)
+tokenizer <- text_tokenizer(num_words = max_features, lower = F, split = " ", char_level = F)
+fit_text_tokenizer(tokenizer, train[[text]])
+# keras::save_text_tokenizer(tokenizer, filename = paste0(id_path, "/tokenizer"))
+```
+
+
+## One Hot
+
+```{r}
+# mode = c("binary", "count", "tfidf", "freq")
+# x_train_mat <- tokenizer %>%
+#   keras::texts_to_sequences(train[[text]]) %>% 
+#   sequences_to_matrix(tokenizer, sequences = ., mode = 'binary')
+# 
+# x_test_mat <- tokenizer %>%
+#   keras::texts_to_sequences(test[[text]]) %>% 
+#   sequences_to_matrix(tokenizer, sequences = ., mode = 'binary')
+
+it_train <- itoken(train[[text]], progressbar = F)
+it_test <- itoken(test[[text]], progressbar = F)
+v <- create_vocabulary(it_train)
+  #prune_vocabulary(term_count_min = 10, doc_proportion_max = 0.2)
+vectorizer <- vocab_vectorizer(v)
+x_train_mat <- create_dtm(it_train, vectorizer, type = "dgTMatrix")
+x_test_mat <- create_dtm(it_test, vectorizer, type = "dgTMatrix")
+#dim(x_test_mat)
+```
+
+# LDA
+
+```{r lda, results="hide"}
+# library(topicmodels)
+# lda_vem <- LDA(
+#  x_train_mat,
+#  k = latent_size,
+#  method = "VEM",
+#  control = list(
+#     seed = 42
+#     # burnin = 1000,
+#     # thin = 1,
+#     # iter = 1000
+#    )
+# )
+
+library(text2vec)
+lda_model <- text2vec::LDA$new(
+  n_topics = latent_size, 
+  doc_topic_prior = 0.1, 
+  topic_word_prior = 0.01
+)
+
+# train model
+tictoc::tic()
+lda_model$fit_transform(
+  x = x_train_mat, 
+  n_iter = 100, 
+  convergence_tol = 0.001, 
+  n_check_convergence = 20, 
+  progressbar = F
+)
+timing <- tictoc::toc(log = T)
+runtime <- timing$toc - timing$tic
+
+# predict on hold out data
+lda_train_pred <- lda_model$transform(x_train_mat) %>%
+  as.matrix
+lda_test_pred <- lda_model$transform(x_test_mat) %>% 
+  as.matrix
+```
+
+
+# Qualitative
+
+## Generating Word Lists
+
+* .. to be added.
+
+
+## Word Embeddings Learned by Different Models.
+
+* Word Vectors?
+* compared to Word2vec
+
+```{r word_embed, results = "hide"}
+library(furrr)
+plan(multiprocess)
+
+tokens <- as.character(tokenizer$index_word[1:max_features])
+it <- itoken(tokens, progressbar = F)
+new_dtm <-  create_dtm(it, vectorizer, type = "dgTMatrix")
+word_embed <- lda_model$transform(new_dtm) %>% 
+  as.matrix()
+
+row.names(word_embed) <- as.character(tokens)
+save(word_embed, file = paste0(id_path, "/word_embed.Rdata"))
+head(word_embed, 5)
+```
+
+```{r}
+find_similar_words <- function(word, mat, n = 10) {
+
+  sim_valies <- text2vec::sim2(mat, y = matrix(mat[word, ], ncol = ncol(mat)), method = "cosine")
+  sim_valies[,1] %>% 
+    sort(decreasing = TRUE) %>% 
+    head(n)
+}
+
+find_similar_words_pos <- possibly(find_similar_words, NULL)
+
+find_similar_words_pos("parliament", word_embed)
+find_similar_words_pos("study", word_embed)
+find_similar_words_pos("president", word_embed)
+find_similar_words_pos("media", word_embed)
+find_similar_words_pos("institution", word_embed)
+```
+
+
+## Visualization of Document Representations.
+
+### PCA
+
+```{r pca}
+lda_comps <- lda_test_pred %>% 
+  stats::princomp(.) %>%
+  .$score %>% 
+  as_tibble %>%  
+  #janitor::clean_names() %>%
+  select(1:2) %>% 
+  rename(pca_1 = Comp.1, pca_2 = Comp.2) %>% 
+  glimpse
+```
+
+
+### TSNE
+
+```{r tsne}
+# devtools::install_github("jkrijthe/Rtsne")
+library(Rtsne) # Load package
+tsne_out <- Rtsne(lda_test_pred, check_duplicates = F) # Run TSNE
+
+lda_tsne <- tsne_out$Y %>% 
+  as_tibble %>% 
+  bind_cols() %>%
+  rename(tsne_1 = V1, tsne_2 = V2) %>% 
+  glimpse
+```
+
+### Phate
+
+* https://github.com/KrishnaswamyLab/phateR
+
+```{r, eval = F, python = "/usr/local/bin/python3"}
+# use_virtualenv("~/myenv")
+# use_condaenv("myenv")
+# reticulate::py_install("phate")
+# reticulate::py_install("phate", pip=TRUE)
+# devtools::install_github("KrishnaswamyLab/phateR")
+# library(phateR)
+# lda_phate <- phate(lda_test_pred)
+```
+
+### UMAP
+
+* ump dimensionality reduction r
+* Uniform Manifold Approximation and Projection in R
+<!-- * https://github.com/ropenscilabs/umapr -->
+* https://cran.r-project.org/web/packages/umap/vignettes/umap.html
+* generic R implementation
+
+```{r umap}
+# reticulate::py_install("umap")
+# devtools::install_github("ropenscilabs/umapr")
+# library(umapr)
+# lda_umap <- umapr::umap(lda_test_pred)
+# umap(iris[, 1:4])
+
+library(umap)
+lda_umap_model <- umap(lda_test_pred)
+lda_umap <- lda_umap_model$layout %>% 
+  as_tibble %>%
+  set_names(str_replace(colnames(.), "V", "umap_")) %>% 
+  glimpse
+```
+
+
+### Large Vis
+
+* https://github.com/elbamos/largeVis/blob/master/vignettes/largeVis.Rmd
+
+```{r largeVis}
+# devtools::install_github("elbamos/largeVis")
+library(largeVis)
+# visObject <- largeVis(lda_prep, max_iter = 20, K = latent_size, sgd_batches = 10000, threads = 1)
+# visObject %>% map(str)
+
+get_large_vis <- function(dat, K = 20, M = 2, labels){
+
+  # K <- 10 #c(5, 10,20,30) the closest `K` candidate neighbors for each node are kept
+  # M <- 10 # c(5, 10, 20) the algorithm also samples `M` non-nearest neighbor negative samples
+  # dat <- lda_prep
+  # dupes <- duplicated(dat)
+  # dat <- dat[-dupes,]
+  # labels <- test$target_label
+  
+  dat <- as.matrix(dat)
+  dat <- t(dat)
+  
+  coordsinput <- matrix(rnorm(ncol(dat) * 2), nrow = 2)
+  
+  neighbors <- randomProjectionTreeSearch(dat, K = K, verbose = FALSE)
+  edges <- buildEdgeMatrix(dat, neighbors, verbose = FALSE)
+  wij <- buildWijMatrix(edges)
+  coords <- projectKNNs(
+    wij = wij, M = M, 
+    coords = coordsinput, 
+    verbose = TRUE, 
+    sgd_batches = 2000000
+  )
+  
+  coords <- scale(t(coords))
+  coords <- as_tibble(coords)
+  colnames(coords) <- c("largeV_1", "largeV_2")
+  return(coords)
+}
+
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+
+lda_largeVis <- lda_test_pred %>% 
+  as_tibble() %>% 
+  mutate_all(range01) %>% 
+  as.matrix %>%
+  get_large_vis(labels = test$target_label) %>% 
+  glimpse
+```
+
+
+# Quantitative
+
+```{r}
+num_classes <- length(unique(train$target_label))
+# decide whether binary decision or multinomial
+if(num_classes == 2) num_classes <- num_classes - 1
+
+text_stats <- dt %>%
+  mutate(
+    nchars = str_length(lemma), 
+    nwords = str_count(lemma, "\\w+")
+  ) %>%
+  summarise(
+    mean_nchars = mean(nchars), 
+    mean_nwords = mean(nwords), 
+    total_n = n(), 
+    n_classes = length(unique(target_label))
+  )
+
+lda_glance <- tibble(
+    model, 
+    data = name, 
+    text, 
+    h = hidden_size, 
+    l = latent_size,
+    runtime,
+    num_classes,
+    sparsity = (1 - mean(x_train_mat)) %>% round(3)
+  ) %>% 
+  bind_cols(text_stats) %>% 
+  mutate(
+    train_size = round(total_n * .8), 
+    test_size = round(total_n * .2)
+  )
+```
+
+
+## Mean Squared Cosine Deviation
+
+* how distinct are the topics learned
+* Mean Squared Cosine Deviation among Topics
+
+```{r mscs}
+mean_sq_cosine_sim <- function(a, b) mean((crossprod(a,b)/sqrt(crossprod(a)*crossprod(b)))^2)
+
+sim_run <- expand.grid(1:latent_size, 1:latent_size) %>% 
+  filter(Var1 > Var2) %>%
+  split(1:nrow(.)) %>%
+  map_df(~ tibble(x = .x$Var1, y = .x$Var2, mscs = mean_sq_cosine_sim(lda_test_pred[,.x$Var1], lda_test_pred[, .x$Var2])))
+
+lda_glance$mean_mscs <- sim_run %>% 
+  pull(mscs) %>%
+  mean
+
+lda_glance$mean_mscs
+```
+
+
+## Document Classification Task
+
+### Random Forest
+
+```{r rf}
+lda_train_prep <- lda_train_pred %>% 
+  as_tibble() %>% 
+  set_names(paste0("V",colnames(.))) %>% 
+  mutate(y = as.factor(train$target_label))
+
+lda_test_prep <- lda_test_pred %>%
+  as_tibble() %>% 
+  set_names(paste0("V",colnames(.)))
+
+# devtools::install_github("imbs-hl/ranger")
+fit_pred_rf <- ranger::ranger(y ~ ., data = lda_train_prep)
+pred_rf <- predict(fit_pred_rf, lda_test_prep)$predictions
+
+fit_prob_rf <- ranger::ranger(y ~ ., data = lda_train_prep, probability = T)
+prob_rf <- predict(fit_prob_rf, lda_test_prep)$predictions[,1]
+
+table(pred_rf, test$target_label)
+lda_glance$acc_rf <- mean(pred_rf == test$target_label)
+lda_glance$acc_rf
+```
+
+### Neural Network
+
+```{r nn}
+classifier <- keras_model_sequential() %>%
+  layer_dense(units = num_classes, input_shape = c(latent_size)) %>%
+  layer_dropout(.3) %>% 
+  layer_activation(activation = ifelse(num_classes > 1, 'softmax', 'sigmoid'))
+
+classifier %>% compile(
+  loss = ifelse(num_classes > 1, 'categorical_crossentropy', 'binary_crossentropy'),
+  optimizer = 'adam',
+  metrics = c('accuracy')
+)
+
+# rm(y_train)
+if(num_classes > 1){
+  y_train <- dummies::dummy(train$target)
+} else {
+  y_train <- train$target
+}
+
+history <- classifier %>% 
+  keras::fit(
+    lda_train_pred, y_train,
+    batch_size = 32,
+    epochs = 5,
+    verbose = 1,
+    validation_split = 0.1
+  )
+
+#rm(pred_nn)
+if(num_classes > 1){
+  pred_nn <- predict(classifier, lda_test_pred) %>%
+    as_tibble() %>% 
+    split(1:nrow(.)) %>% 
+    map_int(~ which.max(.x))
+} else {
+  prob_nn <- predict(classifier, lda_test_pred)
+  pred_nn <- ifelse(prob_nn[,1] > .5, 1, 0)
+}
+
+table(pred_nn, test$target)
+lda_glance$acc_nn <- mean(pred_nn == test$target)
+lda_glance$acc_nn
+```
+
+```{r}
+lda_classified <- tibble(pred_rf, pred_nn)
+if(num_classes == 1){
+  lda_classified <- lda_classified %>% 
+    mutate(prob_nn = prob_nn, prob_rf = prob_rf)
+}
+```
+
+
+# Combine Features
+
+```{r features}
+lda_glance %>% 
+  glimpse
+
+save(lda_glance, file = paste0(id_path, "/glance.Rdata"))
+
+lda_features <- test %>% 
+  select(target, target_label) %>%
+  bind_cols(lda_comps) %>%
+  bind_cols(lda_tsne) %>% 
+  bind_cols(lda_umap)%>% 
+  bind_cols(lda_largeVis) %>% 
+  mutate(model = model, data = name) %>%
+  bind_cols(lda_classified) %>%
+  bind_cols(as_tibble(lda_test_pred)) %>%
+  glimpse
+
+save(lda_features, file = paste0(id_path, "/features.Rdata"))
+```
+
+
+## Plot
+
+```{r features_plot}
+raw <- lda_features %>%
+  ggplot(aes(V1, V2, colour = target_label)) +
+  geom_point(alpha = .2) +
+  #scale_colour_viridis_d() + 
+  ggthemes::scale_colour_colorblind("")
+
+pca <- lda_features %>%
+  ggplot(aes(pca_1, pca_2, colour = target_label)) +
+  geom_point(alpha = .2) +
+  #scale_colour_viridis_d() + 
+  ggthemes::scale_colour_colorblind("")
+
+tsne <- lda_features %>% 
+  ggplot(aes(tsne_1, tsne_2, colour = target_label)) +
+  geom_point(alpha = .2) +
+  ggthemes::scale_colour_colorblind("") 
+
+umap <- lda_features %>%
+  ggplot(aes(umap_1, umap_2, colour = target_label)) +
+  geom_point(alpha = .2) +
+  #scale_colour_viridis_d() + 
+  ggthemes::scale_colour_colorblind("")
+
+largeV <- lda_features %>%
+  ggplot(aes(largeV_1, largeV_2, colour = target_label)) +
+  geom_point(alpha = .2) +
+  #scale_colour_viridis_d() + 
+  ggthemes::scale_colour_colorblind("")
+
+all <- gridExtra::grid.arrange(pca, tsne, umap, largeV)
+ggsave(all, file = paste0(id_path, "/", id, "_all_embed.png"), width = 10, height = 8)
+```
+
+
+# Docuemnt Retrieval
+
+* like word embeddings
+* retrieve docuemnts that are similar to the document request
+* precision mesured in shared target_label
+* Document retrieval on x dataset
+
+```{r doc_retrieval, results="hide"}
+find_similar_docs <- function(doc, mat, n = 10) {
+
+  sim_valies <- text2vec::sim2(mat, y = doc, method = "cosine")
+  sim_valies[,1] %>% 
+    sort(decreasing = TRUE) %>% 
+    head(round(n))
+}
+
+retrieve_documents_rowwise <- function(doc_embed, n){
+  doc_embed %>% 
+    split(1:nrow(.)) %>%
+    furrr::future_imap_dfr(~{
+      .y <- as.numeric(.y)
+      retrieved <- find_similar_docs(
+          doc = matrix(.x, nrow = 1), 
+          doc_embed, 
+          n = n
+        ) %>% 
+        names() %>% 
+        tibble(labels = .) %>% 
+        mutate(true = labels == row.names(doc_embed)[.y]) %>% 
+        summarise(acc = mean(true)) %>% 
+        mutate(label = row.names(doc_embed)[.y],  id = .y)
+    }, .progress = T)
+}
+
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+fracs <- range01(exp(seq(0, 10, .5))) %>% 
+  keep(~.x > .01 & .x < .6)
+
+doc_embed <- lda_test_pred
+row.names(doc_embed) <- test$target_label
+
+fracs_perform <- fracs %>% 
+  map_dfr(~{
+    print(.x)
+    n <- round(nrow(doc_embed)*.x)
+    doc_embed %>% 
+      retrieve_documents_rowwise(n = n) %>%
+      group_by(label) %>%
+      summarise(mean_acc = mean(acc)) %>%
+      ungroup %>%
+      mutate(frac = .x, n = n, data = name, model = model)
+  }) 
+
+save(fracs_perform, file = paste0(id_path, "/fracs_perform.Rdata"))
+```
+
+```{r doc_retrieval_plot}
+fracs_perform %>% 
+  #filter(label == "fake") %>%
+  ggplot(aes(frac, mean_acc, colour = label)) +
+  geom_point() +
+  geom_line() 
+```
+
+
+
+```{r}
+
+```
